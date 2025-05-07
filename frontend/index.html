@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Google Meet Clone</title>
+    <link rel="stylesheet" href="./style.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://unpkg.com/lucide@latest"></script>
+  </head>
+  <body>
+    <header class="header">
+      <div class="header-container">
+        <div class="header-left">
+          <button class="icon-button menu-button" aria-label="Menu">
+            <i data-lucide="menu"></i>
+          </button>
+          <div class="logo">
+            <i data-lucide="video"></i>
+            <span>Meet</span>
+          </div>
+        </div>
+        <div class="header-right">
+          <button class="button button-secondary join-button">
+            Join a meeting
+          </button>
+          <button class="button button-primary new-meeting-button">
+            New meeting
+          </button>
+          <button class="avatar-button">G</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="hero">
+        <div class="hero-content">
+          <h1>Premium video meetings. Now free for everyone.</h1>
+          <p>
+            We re-engineered the service we built for secure business meetings,
+            Ai Meet, to make it free and available for all.
+          </p>
+          <div class="hero-buttons">
+            <button class="button button-primary new-meeting-button">
+              <i data-lucide="video"></i>
+              New Meeting
+            </button>
+            <div class="join-input">
+              <i data-lucide="keyboard"></i>
+              <input
+                type="text"
+                placeholder="Enter a code or link"
+                aria-label="Enter meeting code"
+              />
+              <button class="button button-text">Join</button>
+            </div>
+          </div>
+        </div>
+        <div class="hero-image">
+          <img
+            src="https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80"
+            alt="People in a video meeting"
+          />
+        </div>
+      </section>
+
+      <section class="features">
+        <div class="feature-cards">
+          <div class="feature-card">
+            <i data-lucide="video"></i>
+            <h3>Start an instant meeting</h3>
+            <p>
+              Get a link you can share with others to instantly start a video
+              meeting
+            </p>
+            <button class="button button-outline">Start</button>
+          </div>
+          <div class="feature-card">
+            <i data-lucide="users"></i>
+            <h3>Join with a code</h3>
+            <p>
+              Enter a meeting code or link to join an existing video meeting
+            </p>
+            <button class="button button-outline">Join</button>
+          </div>
+          <div class="feature-card">
+            <i data-lucide="calendar"></i>
+            <h3>Schedule in Calendar</h3>
+            <p>Schedule and join meetings directly from Google Calendar</p>
+            <button class="button button-outline">Schedule</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="./auth.js"></script>
+    <script src="./script.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const joinMeetingButton = document.querySelector(
+          ".button.button-secondary.join-button"
+        );
+        if (joinMeetingButton) {
+          joinMeetingButton.addEventListener("click", () => {
+            window.location.href = "meeting.html";
+          });
+        }
+      });
+    </script>
+  </body>
+</html>
