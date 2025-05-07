@@ -110,7 +110,7 @@
         top: 0;
         width: 800px;
         height: 100vh;
-        background: #fff;
+        background: #cf7f7f;
         box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
         display: flex;
         flex-direction: column;
@@ -390,23 +390,25 @@
               </div>
             </div>
             <div class="section-content">
-              <div
+              <div 
                 id="chatMessages"
                 class="tab-content active"
                 data-tab="chat"
+                style="color: black;"
               ></div>
               <div
                 id="transcriptionMessages"
                 class="tab-content"
                 data-tab="transcription"
+                style="color: black;"
               ></div>
             </div>
             <div class="section-input">
               <textarea
-                id="chatInput"
+                id="chatMessage"
                 placeholder="Type your message..."
               ></textarea>
-              <button id="sendChatMessage">Send</button>
+              <button id="sendMessage">Send</button>
             </div>
           </div>
 
@@ -416,7 +418,9 @@
               <h3>Summary</h3>
             </div>
             <div class="section-content">
-              <div id="summaryContent"></div>
+              <div id="summaryContent">
+                
+              </div>
             </div>
             <div class="section-input">
               <textarea
@@ -464,343 +468,6 @@
       </div>
     </div>
 
-    <script>
-      // Initialize Lucide icons
-      lucide.createIcons();
-
-      // DOM Elements
-      const localVideo = document.getElementById("localVideo");
-      const microphoneBtn = document.getElementById("microphone");
-      const cameraBtn = document.getElementById("camera");
-      const screenBtn = document.getElementById("screen");
-      const transcriptionBtn = document.getElementById("transcription");
-      const chatBtn = document.getElementById("chat");
-      const endCallBtn = document.getElementById("end-call");
-      const closeChatBtn = document.getElementById("close-chat");
-      const sidePanel = document.querySelector(".side-panel");
-      const videoGrid = document.querySelector(".video-grid");
-      const connectionStatus = document.querySelector(".connection-status");
-      const meetingTime = document.querySelector(".meeting-time");
-
-      // Chat elements
-      const chatInput = document.getElementById("chatInput");
-      const sendChatMessageBtn = document.getElementById("sendChatMessage");
-      const chatMessages = document.getElementById("chatMessages");
-
-      // State variables
-      let localStream;
-      let screenStream;
-      let meetingStartTime;
-      let meetingInterval;
-      let isMicOn = true;
-      let isCameraOn = true;
-      let isScreenSharing = false;
-      let isTranscribing = false;
-
-      // Initialize meeting
-      async function initMeeting() {
-        try {
-          // Get user media
-          localStream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
-            video: true,
-          });
-
-          // Set video source
-          localVideo.srcObject = localStream;
-
-          // Update connection status
-          connectionStatus.textContent = "Connected";
-          connectionStatus.classList.add("connected");
-          connectionStatus.classList.remove("disconnected");
-
-          // Enable end call button
-          endCallBtn.classList.remove("disabled");
-          endCallBtn.classList.add("active");
-
-          // Start meeting timer
-          startMeetingTimer();
-        } catch (error) {
-          console.error("Error accessing media devices:", error);
-          connectionStatus.textContent = "Connection Failed";
-          connectionStatus.classList.add("disconnected");
-        }
-      }
-
-      // Toggle microphone
-      microphoneBtn.addEventListener("click", () => {
-        if (localStream) {
-          const audioTracks = localStream.getAudioTracks();
-          audioTracks.forEach((track) => {
-            track.enabled = !track.enabled;
-          });
-
-          isMicOn = !isMicOn;
-          if (isMicOn) {
-            microphoneBtn.classList.add("active");
-            microphoneBtn.classList.remove("inactive");
-          } else {
-            microphoneBtn.classList.remove("active");
-            microphoneBtn.classList.add("inactive");
-          }
-        }
-      });
-
-      // Toggle camera
-      cameraBtn.addEventListener("click", () => {
-        if (localStream) {
-          const videoTracks = localStream.getVideoTracks();
-          videoTracks.forEach((track) => {
-            track.enabled = !track.enabled;
-          });
-
-          isCameraOn = !isCameraOn;
-          if (isCameraOn) {
-            cameraBtn.classList.add("active");
-            cameraBtn.classList.remove("inactive");
-          } else {
-            cameraBtn.classList.remove("active");
-            cameraBtn.classList.add("inactive");
-          }
-        }
-      });
-
-      // Toggle screen sharing
-      screenBtn.addEventListener("click", async () => {
-        try {
-          if (!isScreenSharing) {
-            screenStream = await navigator.mediaDevices.getDisplayMedia({
-              video: true,
-              audio: true,
-            });
-
-            // Replace video track with screen share
-            const videoTrack = screenStream.getVideoTracks()[0];
-            const sender = localStream.getVideoTracks()[0];
-            sender.replaceTrack(videoTrack);
-
-            isScreenSharing = true;
-            screenBtn.classList.add("active");
-
-            // Handle when screen sharing is stopped
-            videoTrack.onended = () => {
-              stopScreenShare();
-            };
-          } else {
-            stopScreenShare();
-          }
-        } catch (error) {
-          console.error("Error sharing screen:", error);
-        }
-      });
-
-      function stopScreenShare() {
-        if (screenStream) {
-          const videoTrack = localStream.getVideoTracks()[0];
-          videoTrack.stop();
-          screenStream.getTracks().forEach((track) => track.stop());
-          isScreenSharing = false;
-          screenBtn.classList.remove("active");
-
-          // Restore camera
-          navigator.mediaDevices
-            .getUserMedia({ video: true })
-            .then((stream) => {
-              const newVideoTrack = stream.getVideoTracks()[0];
-              const sender = localStream.getVideoTracks()[0];
-              sender.replaceTrack(newVideoTrack);
-              stream.getTracks().forEach((track) => track.stop()); // Clean up
-            })
-            .catch(console.error);
-        }
-      }
-
-      // Speech Recognition Setup
-      const SpeechRecognition =
-        window.SpeechRecognition || window.webkitSpeechRecognition;
-      let recognition;
-
-      if (SpeechRecognition) {
-        recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = "en-US";
-
-        recognition.onresult = (event) => {
-          const transcriptionMessages = document.getElementById(
-            "transcriptionMessages"
-          );
-          let interimTranscript = "";
-          let finalTranscript = "";
-
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-              finalTranscript += transcript + " ";
-            } else {
-              interimTranscript += transcript;
-            }
-          }
-
-          // Display both interim and final results
-          transcriptionMessages.innerHTML = `
-          <div class="message transcription">${finalTranscript}</div>
-          ${
-            interimTranscript
-              ? `<div class="message transcription interim">${interimTranscript}</div>`
-              : ""
-          }
-        `;
-
-          // Auto-scroll to bottom
-          transcriptionMessages.scrollTop = transcriptionMessages.scrollHeight;
-        };
-
-        recognition.onerror = (event) => {
-          console.error("Speech recognition error", event.error);
-          transcriptionBtn.classList.remove("active");
-          isTranscribing = false;
-        };
-
-        recognition.onend = () => {
-          if (isTranscribing) {
-            recognition.start(); // Restart if still transcribing
-          }
-        };
-      } else {
-        console.warn("Speech Recognition API not supported");
-        transcriptionBtn.disabled = true;
-        transcriptionBtn.classList.add("inactive");
-      }
-
-      // Toggle transcription
-      transcriptionBtn.addEventListener("click", () => {
-        if (!recognition) return;
-
-        isTranscribing = !isTranscribing;
-
-        if (isTranscribing) {
-          recognition.start();
-          transcriptionBtn.classList.add("active");
-          transcriptionBtn.classList.remove("inactive");
-
-          // Activate the transcription tab
-          document.querySelector('[data-tab="transcription"]').click();
-        } else {
-          recognition.stop();
-          transcriptionBtn.classList.remove("active");
-          transcriptionBtn.classList.add("inactive");
-        }
-      });
-
-      // Toggle chat panel
-      chatBtn.addEventListener("click", () => {
-        sidePanel.classList.add("open");
-        videoGrid.classList.add("chat-open");
-      });
-
-      closeChatBtn.addEventListener("click", () => {
-        sidePanel.classList.remove("open");
-        videoGrid.classList.remove("chat-open");
-      });
-
-      // End call
-      endCallBtn.addEventListener("click", () => {
-        if (localStream) {
-          localStream.getTracks().forEach((track) => track.stop());
-        }
-        if (screenStream) {
-          screenStream.getTracks().forEach((track) => track.stop());
-        }
-        if (recognition && isTranscribing) {
-          recognition.stop();
-        }
-
-        connectionStatus.textContent = "Disconnected";
-        connectionStatus.classList.add("disconnected");
-        connectionStatus.classList.remove("connected");
-
-        endCallBtn.classList.remove("active");
-        endCallBtn.classList.add("disabled");
-
-        clearInterval(meetingInterval);
-        meetingTime.textContent = "00:00";
-      });
-
-      // Send chat message
-      sendChatMessageBtn.addEventListener("click", sendChatMessage);
-      chatInput.addEventListener("keypress", (e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-          e.preventDefault();
-          sendChatMessage();
-        }
-      });
-
-      function sendChatMessage() {
-        const message = chatInput.value.trim();
-        if (message) {
-          const messageElement = document.createElement("div");
-          messageElement.classList.add("message", "local");
-          messageElement.textContent = message;
-          chatMessages.appendChild(messageElement);
-          chatInput.value = "";
-
-          // Scroll to bottom
-          chatMessages.scrollTop = chatMessages.scrollHeight;
-
-          // Simulate response
-          setTimeout(() => {
-            const responseElement = document.createElement("div");
-            responseElement.classList.add("message", "remote");
-            responseElement.textContent = "Thanks for your message!";
-            chatMessages.appendChild(responseElement);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-          }, 100000);
-        }
-      }
-
-      // Tab switching functionality
-      const tabs = document.querySelectorAll(".section-tab");
-      tabs.forEach((tab) => {
-        tab.addEventListener("click", () => {
-          const tabContainer = tab.closest(".section-tabs");
-          const contentContainer = tab
-            .closest(".panel-section")
-            .querySelector(".section-content");
-
-          // Remove active class from all tabs in this container
-          tabContainer
-            .querySelectorAll(".section-tab")
-            .forEach((t) => t.classList.remove("active"));
-          // Add active class to clicked tab
-          tab.classList.add("active");
-
-          // Hide all tab contents in this container
-          contentContainer
-            .querySelectorAll(".tab-content")
-            .forEach((c) => c.classList.remove("active"));
-          // Show the selected tab content
-          const tabName = tab.getAttribute("data-tab");
-          contentContainer
-            .querySelector(`.tab-content[data-tab="${tabName}"]`)
-            .classList.add("active");
-        });
-      });
-
-      // Meeting timer
-      function startMeetingTimer() {
-        meetingStartTime = new Date();
-        meetingInterval = setInterval(() => {
-          const now = new Date();
-          const diff = new Date(now - meetingStartTime);
-          const minutes = diff.getUTCMinutes().toString().padStart(2, "0");
-          const seconds = diff.getUTCSeconds().toString().padStart(2, "0");
-          meetingTime.textContent = `${minutes}:${seconds}`;
-        }, 1000);
-      }
-
-      // Initialize the meeting when page loads
-      window.addEventListener("load", initMeeting);
-    </script>
+    <script src="./meeting.js"></script>
   </body>
 </html>

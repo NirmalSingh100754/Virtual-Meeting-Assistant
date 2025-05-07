@@ -110,7 +110,7 @@
         top: 0;
         width: 800px;
         height: 100vh;
-        background: #fff;
+        background: #cf7f7f;
         box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
         display: flex;
         flex-direction: column;
@@ -390,15 +390,17 @@
               </div>
             </div>
             <div class="section-content">
-              <div
-                id="chatMessages"
-                class="tab-content active"
-                data-tab="chat"
-              ></div>
+              <div 
+             id="chatMessages"
+             class="tab-content active"
+             data-tab="chat"
+            style="color: black;"
+             ></div>
               <div
                 id="transcriptionMessages"
                 class="tab-content"
                 data-tab="transcription"
+                style="color: black;"
               ></div>
             </div>
             <div class="section-input">
@@ -464,343 +466,593 @@
       </div>
     </div>
 
-    <script>
-      // Initialize Lucide icons
-      lucide.createIcons();
 
-      // DOM Elements
-      const localVideo = document.getElementById("localVideo");
-      const microphoneBtn = document.getElementById("microphone");
-      const cameraBtn = document.getElementById("camera");
-      const screenBtn = document.getElementById("screen");
-      const transcriptionBtn = document.getElementById("transcription");
-      const chatBtn = document.getElementById("chat");
-      const endCallBtn = document.getElementById("end-call");
-      const closeChatBtn = document.getElementById("close-chat");
-      const sidePanel = document.querySelector(".side-panel");
-      const videoGrid = document.querySelector(".video-grid");
-      const connectionStatus = document.querySelector(".connection-status");
-      const meetingTime = document.querySelector(".meeting-time");
+    <!-- <script>
+      // Global variable for meeting content
+let content = "";
 
-      // Chat elements
-      const chatInput = document.getElementById("chatInput");
-      const sendChatMessageBtn = document.getElementById("sendChatMessage");
-      const chatMessages = document.getElementById("chatMessages");
+class MeetingRoom {
+  constructor() {
+    this.stream = null;
+    this.screenStream = null;
+    this.isAudioEnabled = true;
+    this.isVideoEnabled = true;
+    this.isScreenSharing = false;
+    this.isChatOpen = false;
+    this.isTranscribing = false;
+    this.meetingStartTime = Date.now();
+    this.transcript = "";
+    this.recognition = null;
+    this.isMeetingActive = false;
+    this.activeTab = "chat";
+    this.timerInterval = null;
 
-      // State variables
-      let localStream;
-      let screenStream;
-      let meetingStartTime;
-      let meetingInterval;
-      let isMicOn = true;
-      let isCameraOn = true;
-      let isScreenSharing = false;
-      let isTranscribing = false;
+    this.initializeUI();
+    this.setupEventListeners();
+    this.initMeeting();
 
-      // Initialize meeting
-      async function initMeeting() {
-        try {
-          // Get user media
-          localStream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
-            video: true,
-          });
+    // Initialize Lucide icons
+    lucide.createIcons();
+    
+    console.log("MeetingRoom initialized");
+  }
 
-          // Set video source
-          localVideo.srcObject = localStream;
+  initializeUI() {
+    // DOM Elements
+    this.localVideo = document.getElementById("localVideo");
+    this.micButton = document.getElementById("microphone");
+    this.cameraButton = document.getElementById("camera");
+    this.screenButton = document.getElementById("screen");
+    this.transcriptionButton = document.getElementById("transcription");
+    this.chatButton = document.getElementById("chat");
+    this.endCallButton = document.getElementById("end-call");
+    this.closeChatButton = document.getElementById("close-chat");
+    this.sidePanel = document.querySelector(".side-panel");
+    this.videoGrid = document.querySelector(".video-grid");
+    this.connectionStatusElement = document.querySelector(".connection-status");
+    this.meetingTimeDisplay = document.querySelector(".meeting-time");
+    
+    // Chat elements
+    this.chatMessages = document.getElementById("chatMessages");
+    this.transcriptionMessages = document.getElementById("transcriptionMessages");
+    this.aiMessages = document.getElementById("aiMessages");
+    this.chatMessageInput = document.getElementById("chatInput");
+    this.sendMessageButton = document.getElementById("sendChatMessage");
+    
+    // Tabs
+    this.tabButtons = document.querySelectorAll(".section-tab");
+    this.tabContents = document.querySelectorAll(".tab-content");
+  }
 
-          // Update connection status
-          connectionStatus.textContent = "Connected";
-          connectionStatus.classList.add("connected");
-          connectionStatus.classList.remove("disconnected");
-
-          // Enable end call button
-          endCallBtn.classList.remove("disabled");
-          endCallBtn.classList.add("active");
-
-          // Start meeting timer
-          startMeetingTimer();
-        } catch (error) {
-          console.error("Error accessing media devices:", error);
-          connectionStatus.textContent = "Connection Failed";
-          connectionStatus.classList.add("disconnected");
-        }
+  setupEventListeners() {
+    // Control buttons
+    this.micButton.addEventListener("click", () => this.toggleAudio());
+    this.cameraButton.addEventListener("click", () => this.toggleVideo());
+    this.screenButton.addEventListener("click", () => this.toggleScreenShare());
+    this.transcriptionButton.addEventListener("click", () => this.toggleTranscription());
+    this.chatButton.addEventListener("click", () => this.toggleChat());
+    this.closeChatButton.addEventListener("click", () => this.toggleChat());
+    this.endCallButton.addEventListener("click", () => this.endCall());
+    
+    // Chat functionality
+    this.sendMessageButton.addEventListener("click", () => this.sendChatMessage());
+    this.chatMessageInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        this.sendChatMessage();
       }
+    });
+    
+    // Auto-resize text area
+    this.chatMessageInput.addEventListener("input", () => {
+      this.chatMessageInput.style.height = "auto";
+      this.chatMessageInput.style.height = `${this.chatMessageInput.scrollHeight}px`;
+    });
 
-      // Toggle microphone
-      microphoneBtn.addEventListener("click", () => {
-        if (localStream) {
-          const audioTracks = localStream.getAudioTracks();
-          audioTracks.forEach((track) => {
-            track.enabled = !track.enabled;
-          });
-
-          isMicOn = !isMicOn;
-          if (isMicOn) {
-            microphoneBtn.classList.add("active");
-            microphoneBtn.classList.remove("inactive");
-          } else {
-            microphoneBtn.classList.remove("active");
-            microphoneBtn.classList.add("inactive");
-          }
-        }
+    // Tab switching
+    this.tabButtons.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const tabName = tab.getAttribute("data-tab");
+        this.switchTab(tabName);
       });
+    });
 
-      // Toggle camera
-      cameraBtn.addEventListener("click", () => {
-        if (localStream) {
-          const videoTracks = localStream.getVideoTracks();
-          videoTracks.forEach((track) => {
-            track.enabled = !track.enabled;
-          });
-
-          isCameraOn = !isCameraOn;
-          if (isCameraOn) {
-            cameraBtn.classList.add("active");
-            cameraBtn.classList.remove("inactive");
-          } else {
-            cameraBtn.classList.remove("active");
-            cameraBtn.classList.add("inactive");
-          }
-        }
-      });
-
-      // Toggle screen sharing
-      screenBtn.addEventListener("click", async () => {
-        try {
-          if (!isScreenSharing) {
-            screenStream = await navigator.mediaDevices.getDisplayMedia({
-              video: true,
-              audio: true,
-            });
-
-            // Replace video track with screen share
-            const videoTrack = screenStream.getVideoTracks()[0];
-            const sender = localStream.getVideoTracks()[0];
-            sender.replaceTrack(videoTrack);
-
-            isScreenSharing = true;
-            screenBtn.classList.add("active");
-
-            // Handle when screen sharing is stopped
-            videoTrack.onended = () => {
-              stopScreenShare();
-            };
-          } else {
-            stopScreenShare();
-          }
-        } catch (error) {
-          console.error("Error sharing screen:", error);
-        }
-      });
-
-      function stopScreenShare() {
-        if (screenStream) {
-          const videoTrack = localStream.getVideoTracks()[0];
-          videoTrack.stop();
-          screenStream.getTracks().forEach((track) => track.stop());
-          isScreenSharing = false;
-          screenBtn.classList.remove("active");
-
-          // Restore camera
-          navigator.mediaDevices
-            .getUserMedia({ video: true })
-            .then((stream) => {
-              const newVideoTrack = stream.getVideoTracks()[0];
-              const sender = localStream.getVideoTracks()[0];
-              sender.replaceTrack(newVideoTrack);
-              stream.getTracks().forEach((track) => track.stop()); // Clean up
-            })
-            .catch(console.error);
-        }
+    // Warn before leaving meeting
+    window.addEventListener("beforeunload", (e) => {
+      if (this.isMeetingActive && this.transcript.trim()) {
+        this.saveMeetingHistory();
+        e.preventDefault();
+        e.returnValue = "";
       }
+    });
+  }
 
-      // Speech Recognition Setup
-      const SpeechRecognition =
-        window.SpeechRecognition || window.webkitSpeechRecognition;
-      let recognition;
+  async initMeeting() {
+    try {
+      // Get user media
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: true
+      });
 
-      if (SpeechRecognition) {
-        recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = "en-US";
+      // Set video source
+      this.localVideo.srcObject = this.stream;
 
-        recognition.onresult = (event) => {
-          const transcriptionMessages = document.getElementById(
-            "transcriptionMessages"
-          );
-          let interimTranscript = "";
-          let finalTranscript = "";
+      // Update connection status
+      this.updateConnectionStatus("Connected", true);
+      this.isMeetingActive = true;
+      
+      // Enable end call button
+      this.endCallButton.classList.remove("disabled");
+      this.endCallButton.classList.add("active");
 
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-              finalTranscript += transcript + " ";
-            } else {
-              interimTranscript += transcript;
-            }
-          }
-
-          // Display both interim and final results
-          transcriptionMessages.innerHTML = `
-          <div class="message transcription">${finalTranscript}</div>
-          ${
-            interimTranscript
-              ? `<div class="message transcription interim">${interimTranscript}</div>`
-              : ""
-          }
-        `;
-
-          // Auto-scroll to bottom
-          transcriptionMessages.scrollTop = transcriptionMessages.scrollHeight;
-        };
-
-        recognition.onerror = (event) => {
-          console.error("Speech recognition error", event.error);
-          transcriptionBtn.classList.remove("active");
-          isTranscribing = false;
-        };
-
-        recognition.onend = () => {
-          if (isTranscribing) {
-            recognition.start(); // Restart if still transcribing
-          }
-        };
-      } else {
-        console.warn("Speech Recognition API not supported");
-        transcriptionBtn.disabled = true;
-        transcriptionBtn.classList.add("inactive");
+      // Start meeting timer
+      this.startMeetingTimer();
+      
+      // Add welcome message
+      this.updateUI("Meeting started. Connected to server.", "ai");
+    } catch (error) {
+      console.error("Error accessing media devices:", error);
+      this.updateConnectionStatus("Connection Failed", false);
+      
+      // Try fallback to audio only
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        this.updateUI("Video unavailable. Using audio only.", "ai");
+        this.cameraButton.classList.remove("active");
+        this.isVideoEnabled = false;
+        
+        // Update status and start timer
+        this.updateConnectionStatus("Connected (Audio Only)", true);
+        this.isMeetingActive = true;
+        this.startMeetingTimer();
+      } catch (audioErr) {
+        console.error("Error accessing audio devices:", audioErr);
+        this.updateUI("Failed to access microphone. Please check permissions.", "ai");
       }
+    }
+  }
 
-      // Toggle transcription
-      transcriptionBtn.addEventListener("click", () => {
-        if (!recognition) return;
+  updateConnectionStatus(status, isConnected = false) {
+    this.connectionStatusElement.textContent = status;
+    this.connectionStatusElement.classList.toggle("connected", isConnected);
+    this.connectionStatusElement.classList.toggle("disconnected", !isConnected);
+  }
 
-        isTranscribing = !isTranscribing;
+  switchTab(tabName) {
+    this.activeTab = tabName;
+    
+    // Update tab buttons
+    const tabContainer = document.querySelector(".section-tabs");
+    tabContainer.querySelectorAll(".section-tab").forEach((t) => {
+      t.classList.toggle("active", t.getAttribute("data-tab") === tabName);
+    });
+    
+    // Update tab content
+    const contentContainer = document.querySelector(".section-content");
+    contentContainer.querySelectorAll(".tab-content").forEach((c) => {
+      c.classList.toggle("active", c.getAttribute("data-tab") === tabName);
+    });
+  }
 
-        if (isTranscribing) {
-          recognition.start();
-          transcriptionBtn.classList.add("active");
-          transcriptionBtn.classList.remove("inactive");
+  sendChatMessage() {
+    if (!this.isMeetingActive) return;
+    const message = this.chatMessageInput.value.trim();
+    if (message) {
+      this.addChatMessage(message, "local");
+      content += message + " ";
+      this.chatMessageInput.value = "";
+      this.chatMessageInput.style.height = "auto";
+      
+      // Simulate AI response
+      setTimeout(() => {
+        this.addAIMessage(`I've received your message: "${message}". How can I help you with this meeting?`);
+      }, 100000);
+      
+      // Optional API call for summarization
+      this.fetchSummary(message);
+    }
+  }
 
-          // Activate the transcription tab
-          document.querySelector('[data-tab="transcription"]').click();
-        } else {
-          recognition.stop();
-          transcriptionBtn.classList.remove("active");
-          transcriptionBtn.classList.add("inactive");
+  fetchSummary(text) {
+    // Optional API call to backend for summarization
+    fetch("http://localhost:5001/summarize", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ text }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Server responded with status: ${response.status}`);
         }
+        return response.json();
+      })
+      .then((data) => {
+        if (data && data.summary) {
+          console.log("Received summary:", data.summary);
+        }
+      })
+      .catch((error) => {
+        console.error("Error fetching summary:", error);
       });
+  }
 
-      // Toggle chat panel
-      chatBtn.addEventListener("click", () => {
-        sidePanel.classList.add("open");
-        videoGrid.classList.add("chat-open");
-      });
+  addChatMessage(text, type) {
+    const container = type === "transcription" 
+      ? this.transcriptionMessages 
+      : this.chatMessages;
+    
+    const messageDiv = document.createElement("div");
+    messageDiv.className = "message-container";
 
-      closeChatBtn.addEventListener("click", () => {
-        sidePanel.classList.remove("open");
-        videoGrid.classList.remove("chat-open");
-      });
+    const header = document.createElement("div");
+    header.className = "message-header";
+    header.textContent = type === "local" 
+      ? "You" 
+      : type === "transcription" 
+        ? "Transcript" 
+        : "Participant";
 
-      // End call
-      endCallBtn.addEventListener("click", () => {
-        if (localStream) {
-          localStream.getTracks().forEach((track) => track.stop());
-        }
-        if (screenStream) {
-          screenStream.getTracks().forEach((track) => track.stop());
-        }
-        if (recognition && isTranscribing) {
-          recognition.stop();
-        }
+    const message = document.createElement("div");
+    message.className = `message ${type}`;
+    message.textContent = text;
 
-        connectionStatus.textContent = "Disconnected";
-        connectionStatus.classList.add("disconnected");
-        connectionStatus.classList.remove("connected");
+    messageDiv.appendChild(header);
+    messageDiv.appendChild(message);
+    container.appendChild(messageDiv);
+    container.scrollTop = container.scrollHeight;
 
-        endCallBtn.classList.remove("active");
-        endCallBtn.classList.add("disabled");
-
-        clearInterval(meetingInterval);
-        meetingTime.textContent = "00:00";
-      });
-
-      // Send chat message
-      sendChatMessageBtn.addEventListener("click", sendChatMessage);
-      chatInput.addEventListener("keypress", (e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-          e.preventDefault();
-          sendChatMessage();
-        }
-      });
-
-      function sendChatMessage() {
-        const message = chatInput.value.trim();
-        if (message) {
-          const messageElement = document.createElement("div");
-          messageElement.classList.add("message", "local");
-          messageElement.textContent = message;
-          chatMessages.appendChild(messageElement);
-          chatInput.value = "";
-
-          // Scroll to bottom
-          chatMessages.scrollTop = chatMessages.scrollHeight;
-
-          // Simulate response
-          setTimeout(() => {
-            const responseElement = document.createElement("div");
-            responseElement.classList.add("message", "remote");
-            responseElement.textContent = "Thanks for your message!";
-            chatMessages.appendChild(responseElement);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-          }, 100000);
-        }
+    // Flash tab if not active
+    if (type === "transcription" && this.activeTab !== "transcription") {
+      const transcriptionTab = document.querySelector('[data-tab="transcription"]');
+      if (transcriptionTab) {
+        transcriptionTab.style.backgroundColor = "#e8f5e9";
+        setTimeout(() => {
+          transcriptionTab.style.backgroundColor = "";
+        }, 100000);
       }
+    }
+  }
 
-      // Tab switching functionality
-      const tabs = document.querySelectorAll(".section-tab");
-      tabs.forEach((tab) => {
-        tab.addEventListener("click", () => {
-          const tabContainer = tab.closest(".section-tabs");
-          const contentContainer = tab
-            .closest(".panel-section")
-            .querySelector(".section-content");
+  addAIMessage(text) {
+    const messageDiv = document.createElement("div");
+    messageDiv.className = "message-container";
 
-          // Remove active class from all tabs in this container
-          tabContainer
-            .querySelectorAll(".section-tab")
-            .forEach((t) => t.classList.remove("active"));
-          // Add active class to clicked tab
-          tab.classList.add("active");
+    const header = document.createElement("div");
+    header.className = "message-header";
+    header.textContent = "AI Assistant";
 
-          // Hide all tab contents in this container
-          contentContainer
-            .querySelectorAll(".tab-content")
-            .forEach((c) => c.classList.remove("active"));
-          // Show the selected tab content
-          const tabName = tab.getAttribute("data-tab");
-          contentContainer
-            .querySelector(`.tab-content[data-tab="${tabName}"]`)
-            .classList.add("active");
+    const message = document.createElement("div");
+    message.className = "message ai";
+    message.textContent = text;
+
+    messageDiv.appendChild(header);
+    messageDiv.appendChild(message);
+    this.aiMessages.appendChild(messageDiv);
+    this.aiMessages.scrollTop = this.aiMessages.scrollHeight;
+  }
+
+  toggleAudio() {
+    if (!this.isMeetingActive || !this.stream) return;
+    
+    this.isAudioEnabled = !this.isAudioEnabled;
+    this.stream.getAudioTracks().forEach(track => {
+      track.enabled = this.isAudioEnabled;
+    });
+    
+    this.micButton.classList.toggle("active", this.isAudioEnabled);
+    this.micButton.classList.toggle("inactive", !this.isAudioEnabled);
+    
+    this.updateUI(`Microphone ${this.isAudioEnabled ? "unmuted" : "muted"}`, "ai");
+  }
+
+  toggleVideo() {
+    if (!this.isMeetingActive || !this.stream) return;
+    
+    this.isVideoEnabled = !this.isVideoEnabled;
+    this.stream.getVideoTracks().forEach(track => {
+      track.enabled = this.isVideoEnabled;
+    });
+    
+    this.cameraButton.classList.toggle("active", this.isVideoEnabled);
+    this.cameraButton.classList.toggle("inactive", !this.isVideoEnabled);
+    
+    this.updateUI(`Camera ${this.isVideoEnabled ? "turned on" : "turned off"}`, "ai");
+  }
+
+  async toggleScreenShare() {
+    if (!this.isMeetingActive) return;
+
+    if (this.isScreenSharing) {
+      // Stop screen sharing
+      if (this.screenStream) {
+        this.screenStream.getTracks().forEach(track => track.stop());
+      }
+      
+      this.isScreenSharing = false;
+      this.screenButton.classList.remove("active");
+      this.updateUI("Screen sharing stopped", "ai");
+
+      // Restore camera
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({ 
+          video: true,
+          audio: this.isAudioEnabled 
         });
-      });
-
-      // Meeting timer
-      function startMeetingTimer() {
-        meetingStartTime = new Date();
-        meetingInterval = setInterval(() => {
-          const now = new Date();
-          const diff = new Date(now - meetingStartTime);
-          const minutes = diff.getUTCMinutes().toString().padStart(2, "0");
-          const seconds = diff.getUTCSeconds().toString().padStart(2, "0");
-          meetingTime.textContent = `${minutes}:${seconds}`;
-        }, 1000);
+        this.localVideo.srcObject = this.stream;
+        
+        // Ensure audio/video state matches buttons
+        this.stream.getAudioTracks().forEach(track => {
+          track.enabled = this.isAudioEnabled;
+        });
+        this.stream.getVideoTracks().forEach(track => {
+          track.enabled = this.isVideoEnabled;
+        });
+      } catch (error) {
+        console.error("Error restoring camera:", error);
+        this.updateUI("Failed to restore camera after screen sharing", "ai");
       }
+    } else {
+      // Start screen sharing
+      try {
+        this.screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true
+        });
+        
+        // Replace current stream
+        if (this.stream) {
+          this.stream.getTracks().forEach(track => track.stop());
+        }
+        
+        this.localVideo.srcObject = this.screenStream;
+        this.stream = this.screenStream;
 
-      // Initialize the meeting when page loads
-      window.addEventListener("load", initMeeting);
-    </script>
+        // Handle when screen sharing is stopped by browser UI
+        this.screenStream.getVideoTracks()[0].onended = () => {
+          this.toggleScreenShare();
+        };
+
+        this.isScreenSharing = true;
+        this.screenButton.classList.add("active");
+        this.updateUI("Screen sharing started", "ai");
+      } catch (error) {
+        console.error("Error starting screen share:", error);
+        this.updateUI("Failed to start screen sharing", "ai");
+      }
+    }
+  }
+
+  toggleTranscription() {
+    if (!this.isMeetingActive) return;
+    
+    if (this.isTranscribing) {
+      this.stopTranscription();
+    } else {
+      this.startTranscription();
+    }
+  }
+
+  startTranscription() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      this.updateUI("Speech Recognition not supported in this browser. Try Chrome, Edge, or Safari.", "ai");
+      return;
+    }
+
+    try {
+      this.recognition = new SpeechRecognition();
+      this.recognition.continuous = true;
+      this.recognition.interimResults = true;
+      this.recognition.lang = "en-US";
+
+      this.recognition.onresult = (event) => {
+        let interimTranscript = "";
+        let finalTranscript = "";
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + " ";
+            this.transcript += transcript + " ";
+            this.addChatMessage(transcript, "transcription");
+            content += transcript + " ";
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        // For interim display (optional)
+        if (interimTranscript) {
+          // Could display interim results if desired
+        }
+      };
+
+      this.recognition.onerror = (event) => {
+        console.error("Speech recognition error:", event.error);
+        if (event.error === "not-allowed") {
+          this.updateUI("Microphone access denied. Please enable permissions.", "ai");
+        } else {
+          this.updateUI(`Speech recognition error: ${event.error}`, "ai");
+        }
+        this.stopTranscription();
+      };
+
+      this.recognition.onend = () => {
+        // Auto-restart if still in transcription mode
+        if (this.isTranscribing) {
+          try {
+            this.recognition.start();
+          } catch (err) {
+            console.error("Failed to restart transcription:", err);
+            this.isTranscribing = false;
+            this.transcriptionButton.classList.remove("active");
+            this.transcriptionButton.classList.add("inactive");
+          }
+        }
+      };
+
+      this.recognition.start();
+      this.isTranscribing = true;
+      this.transcriptionButton.classList.add("active");
+      this.transcriptionButton.classList.remove("inactive");
+      this.updateUI("Transcription started...", "ai");
+      
+      // Switch to transcription tab
+      this.switchTab("transcription");
+    } catch (err) {
+      console.error("Error starting speech recognition:", err);
+      this.updateUI("Failed to start transcription. Please try again.", "ai");
+    }
+  }
+
+  stopTranscription() {
+    if (this.recognition) {
+      try {
+        this.recognition.stop();
+      } catch (err) {
+        console.error("Error stopping recognition:", err);
+      }
+      
+      this.recognition = null;
+      this.isTranscribing = false;
+      this.transcriptionButton.classList.remove("active");
+      this.transcriptionButton.classList.add("inactive");
+      this.updateUI("Transcription stopped.", "ai");
+    }
+  }
+
+  toggleChat() {
+    this.isChatOpen = !this.isChatOpen;
+    this.sidePanel.classList.toggle("open", this.isChatOpen);
+    this.videoGrid.classList.toggle("chat-open", this.isChatOpen);
+    this.chatButton.classList.toggle("active", this.isChatOpen);
+  }
+
+  endCall() {
+    if (!this.isMeetingActive) return;
+    
+    this.isMeetingActive = false;
+    this.updateConnectionStatus("Disconnected", false);
+
+    // Stop all media
+    if (this.recognition) {
+      this.recognition.stop();
+    }
+    
+    if (this.stream) {
+      this.stream.getTracks().forEach(track => track.stop());
+      this.localVideo.srcObject = null;
+    }
+    
+    if (this.screenStream) {
+      this.screenStream.getTracks().forEach(track => track.stop());
+    }
+    
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+    }
+
+    // Update UI
+    this.meetingTimeDisplay.textContent = "Meeting Ended";
+    this.updateUI("You have left the meeting", "ai");
+
+    // Generate meeting summary if content exists
+    if (content.trim().length > 0) {
+      this.generateMeetingSummary();
+    }
+
+    // Disable all controls
+    [
+      this.micButton,
+      this.cameraButton,
+      this.screenButton,
+      this.transcriptionButton,
+      this.chatButton,
+    ].forEach(btn => {
+      btn.classList.remove("active");
+      btn.classList.add("inactive");
+      btn.disabled = true;
+    });
+
+    this.endCallButton.classList.add("disabled");
+    this.endCallButton.classList.remove("active");
+    this.endCallButton.disabled = true;
+
+    this.sendMessageButton.disabled = true;
+    this.chatMessageInput.disabled = true;
+    this.chatMessageInput.placeholder = "Meeting has ended";
+  }
+
+  generateMeetingSummary() {
+    // Generate meeting summary using the API
+    fetch("http://localhost:5001/summarize", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ text: content }),
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Server responded with status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log("Meeting Summary Generated:");
+        if (data.minutes_of_meeting) {
+          this.updateUI("Meeting minutes generated. Check the console for details.", "ai");
+          console.log("Minutes of Meeting:");
+          data.minutes_of_meeting.forEach(line => console.log(line));
+        }
+        if (data.summary) {
+          console.log("Summary:", data.summary);
+        }
+      })
+      .catch(error => {
+        console.error("Error generating meeting summary:", error);
+      });
+  }
+
+  startMeetingTimer() {
+    this.meetingStartTime = new Date();
+    this.timerInterval = setInterval(() => {
+      if (this.isMeetingActive) {
+        const now = new Date();
+        const diff = new Date(now - this.meetingStartTime);
+        const minutes = diff.getUTCMinutes().toString().padStart(2, "0");
+        const seconds = diff.getUTCSeconds().toString().padStart(2, "0");
+        this.meetingTimeDisplay.textContent = `${minutes}:${seconds}`;
+      }
+    }, 1000);
+  }
+
+  saveMeetingHistory() {
+    console.log("Saving meeting history:", this.transcript);
+    localStorage.setItem("lastMeetingTranscript", this.transcript);
+    this.updateUI("Meeting transcript saved locally.", "ai");
+  }
+
+  updateUI(text, type = "ai") {
+    if (type === "transcription") {
+      this.addChatMessage(text, "transcription");
+    } else if (type === "ai") {
+      this.addAIMessage(text);
+    } else {
+      this.addChatMessage(text, type);
+    }
+  }
+}
+
+// Initialize the meeting room when page loads
+document.addEventListener("DOMContentLoaded", () => {
+  new MeetingRoom();
+});
+    </script> -->
+    <script src="./meeting.js"></script>
   </body>
 </html>

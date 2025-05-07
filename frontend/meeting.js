@@ -1,6 +1,5 @@
-var content="";
+var content = "";
 class MeetingRoom {
-   
   constructor() {
     this.stream = null;
     this.isAudioEnabled = true;
@@ -15,8 +14,7 @@ class MeetingRoom {
     this.isMeetingActive = false;
     this.activeTab = "chat";
     this.timerInterval = null;
-    this.connectionStatusElement =
-      document.querySelector(".connection-status");
+    this.connectionStatusElement = document.querySelector(".connection-status");
 
     this.initializeUI();
     this.setupEventListeners();
@@ -51,7 +49,8 @@ class MeetingRoom {
     this.sendMessageButton = document.getElementById("sendMessage");
     this.chatTabs = document.querySelectorAll(".chat-tab");
     this.tabContents = document.querySelectorAll(".tab-content");
-
+    this.summaryContent = document.querySelectorAll("#summaryContent");
+    this.minutesContent = document.querySelectorAll("#minutesContent");
     // Initialize Lucide icons
     lucide.createIcons();
   }
@@ -59,16 +58,12 @@ class MeetingRoom {
   setupEventListeners() {
     this.micButton.addEventListener("click", () => this.toggleAudio());
     this.cameraButton.addEventListener("click", () => this.toggleVideo());
-    this.screenButton.addEventListener("click", () =>
-      this.toggleScreenShare()
-    );
+    this.screenButton.addEventListener("click", () => this.toggleScreenShare());
     this.transcriptionButton.addEventListener("click", () =>
       this.toggleTranscription()
     );
     this.chatButton.addEventListener("click", () => this.toggleChat());
-    this.closeChatButton.addEventListener("click", () =>
-      this.toggleChat()
-    );
+    this.closeChatButton.addEventListener("click", () => this.toggleChat());
     this.endCallButton.addEventListener("click", () => this.endCall());
     this.sendMessageButton.addEventListener("click", () =>
       this.sendChatMessage()
@@ -85,9 +80,7 @@ class MeetingRoom {
     });
 
     this.chatTabs.forEach((tab) => {
-      tab.addEventListener("click", () =>
-        this.switchTab(tab.dataset.tab)
-      );
+      tab.addEventListener("click", () => this.switchTab(tab.dataset.tab));
     });
 
     window.addEventListener("beforeunload", (e) => {
@@ -100,7 +93,6 @@ class MeetingRoom {
   }
 
   simulateConnection() {
-    // Simulate a successful connection
     this.isMeetingActive = true;
     this.updateConnectionStatus("Connected", true);
     this.startMeetingTimer();
@@ -109,14 +101,8 @@ class MeetingRoom {
 
   updateConnectionStatus(status, isConnected = false) {
     this.connectionStatusElement.textContent = status;
-    this.connectionStatusElement.classList.toggle(
-      "connected",
-      isConnected
-    );
-    this.connectionStatusElement.classList.toggle(
-      "disconnected",
-      !isConnected
-    );
+    this.connectionStatusElement.classList.toggle("connected", isConnected);
+    this.connectionStatusElement.classList.toggle("disconnected", !isConnected);
   }
 
   switchTab(tabName) {
@@ -126,10 +112,7 @@ class MeetingRoom {
     });
     this.tabContents.forEach((content) => {
       if (content.dataset.tab) {
-        content.classList.toggle(
-          "active",
-          content.dataset.tab === tabName
-        );
+        content.classList.toggle("active", content.dataset.tab === tabName);
       }
     });
   }
@@ -156,9 +139,7 @@ class MeetingRoom {
 
   addChatMessage(text, type) {
     const container =
-      type === "transcription"
-        ? this.transcriptionMessages
-        : this.chatMessages;
+      type === "transcription" ? this.transcriptionMessages : this.chatMessages;
     const messageDiv = document.createElement("div");
     messageDiv.className = "message-container";
 
@@ -173,12 +154,9 @@ class MeetingRoom {
 
     const message = document.createElement("div");
     message.className = `message ${type}`;
-
-    // Set the message content immediately
-    content+=text;
+    content += text;
     message.textContent = content;
 
-    
     fetch("http://localhost:5001/summarize", {
       method: "POST",
       headers: {
@@ -188,9 +166,7 @@ class MeetingRoom {
     })
       .then((response) => {
         if (!response.ok) {
-          throw new Error(
-            `Server responded with status: ${response.status}`
-          );
+          throw new Error(`Server responded with status: ${response.status}`);
         }
         return response.json();
       })
@@ -202,7 +178,6 @@ class MeetingRoom {
       .catch((error) => {
         console.error("Error fetching summary:", error);
       });
-    
 
     messageDiv.appendChild(header);
     messageDiv.appendChild(message);
@@ -210,7 +185,6 @@ class MeetingRoom {
     container.scrollTop = container.scrollHeight;
 
     if (type === "transcription" && this.activeTab !== "transcription") {
-      // Flash the transcription tab to indicate new content
       const transcriptionTab = Array.from(this.chatTabs).find(
         (tab) => tab.dataset.tab === "transcription"
       );
@@ -273,19 +247,14 @@ class MeetingRoom {
     if (!this.isMeetingActive) return;
 
     if (this.isScreenSharing) {
-      // Stop screen sharing
       this.isScreenSharing = false;
       this.screenButton.classList.remove("active");
       this.updateUI("Screen sharing stopped", "ai");
-
-      // Switch back to camera
       this.setupLocalVideo();
     } else {
-      // Start screen sharing
       navigator.mediaDevices
         .getDisplayMedia({ video: true })
         .then((screenStream) => {
-          // Save current video stream to restore later
           if (this.stream) {
             this.stream.getVideoTracks().forEach((track) => track.stop());
           }
@@ -293,7 +262,6 @@ class MeetingRoom {
           this.localVideo.srcObject = screenStream;
           this.stream = screenStream;
 
-          // Handle the case when user stops sharing via browser UI
           screenStream.getVideoTracks()[0].onended = () => {
             this.isScreenSharing = false;
             this.screenButton.classList.remove("active");
@@ -333,8 +301,7 @@ class MeetingRoom {
     if (!this.isMeetingActive) return;
     this.isMeetingActive = false;
 
-    // Call backend summarize API with the global content variable
-    fetch("http://localhost:5002/summarize", {
+    fetch("http://localhost:5001/summarize", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -351,10 +318,14 @@ class MeetingRoom {
         console.log("Minutes of Meeting:");
         if (data.minutes_of_meeting) {
           data.minutes_of_meeting.forEach((line) => console.log(line));
+          data.minutes_of_meeting.forEach((line) => {
+          minutesContent.innerHTML += `<div>${line}</div>`;
+          });
         }
         console.log("Summary:");
         if (data.summary) {
           console.log(data.summary);
+          summaryContent.innerHTML = data.summary;
         }
       })
       .catch((error) => {
@@ -401,9 +372,7 @@ class MeetingRoom {
   startMeetingTimer() {
     this.timerInterval = setInterval(() => {
       if (this.isMeetingActive) {
-        const elapsed = Math.floor(
-          (Date.now() - this.meetingStartTime) / 1000
-        );
+        const elapsed = Math.floor((Date.now() - this.meetingStartTime) / 1000);
         const minutes = String(Math.floor(elapsed / 60)).padStart(2, "0");
         const seconds = String(elapsed % 60).padStart(2, "0");
         this.meetingTimeDisplay.textContent = `${minutes}:${seconds}`;
@@ -418,7 +387,6 @@ class MeetingRoom {
         this.stream = stream;
         this.localVideo.srcObject = stream;
 
-        // Make sure audio and video states match the buttons
         this.stream
           .getAudioTracks()
           .forEach((track) => (track.enabled = this.isAudioEnabled));
@@ -433,7 +401,6 @@ class MeetingRoom {
           "ai"
         );
 
-        // Try fallback to audio only
         navigator.mediaDevices
           .getUserMedia({ audio: true })
           .then((audioStream) => {
@@ -454,9 +421,6 @@ class MeetingRoom {
 
   simulateSendToServer(data) {
     console.log("Simulated data sent to server:", data);
-    // Here we would normally send data to a WebSocket server
-    // Since we don't have a real server, we'll simulate responses
-
     if (data.type === "leave") {
       setTimeout(() => {
         this.updateUI("Server acknowledged your departure", "ai");
@@ -515,7 +479,6 @@ class MeetingRoom {
       };
 
       this.recognition.onend = () => {
-        // Auto-restart if still in transcription mode
         if (this.isTranscribing) {
           try {
             this.recognition.start();
@@ -532,15 +495,10 @@ class MeetingRoom {
       this.isTranscribing = true;
       this.transcriptionButton.classList.add("active");
       this.updateUI("Transcription started...", "ai");
-
-      // Switch to transcription tab
       this.switchTab("transcription");
     } catch (err) {
       console.error("Error starting speech recognition:", err);
-      this.updateUI(
-        "Failed to start transcription. Please try again.",
-        "ai"
-      );
+      this.updateUI("Failed to start transcription. Please try again.", "ai");
     }
   }
 
@@ -560,7 +518,6 @@ class MeetingRoom {
 
   saveMeetingHistory() {
     console.log("Saving meeting history:", this.transcript);
-    // In a real application, this would save to a server or local storage
     localStorage.setItem("lastMeetingTranscript", this.transcript);
     this.updateUI("Meeting transcript saved locally.", "ai");
   }
