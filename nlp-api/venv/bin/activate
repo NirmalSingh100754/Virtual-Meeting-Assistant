@@ -35,7 +35,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="/Users/nirmalsingh/Desktop/Virtual Meeting Assistant/minor 2/nlp-api/venv"
+VIRTUAL_ENV="/Users/nirmalsingh/Desktop/minor 2/nlp-api/venv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

@@ -33,7 +33,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV "/Users/nirmalsingh/Desktop/Virtual Meeting Assistant/minor 2/nlp-api/venv"
+set -gx VIRTUAL_ENV "/Users/nirmalsingh/Desktop/minor 2/nlp-api/venv"
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/bin" $PATH

@@ -1,5 +1,5 @@
 #!/bin/sh
-'''exec' "/Users/nirmalsingh/Desktop/Virtual Meeting Assistant/minor 2/nlp-api/venv/bin/python3.11" "$0" "$@"
+'''exec' "/Users/nirmalsingh/Desktop/minor 2/nlp-api/venv/bin/python3.11" "$0" "$@"
 ' '''
 # -*- coding: utf-8 -*-
 import re

@@ -8,8 +8,12 @@ const PORT = process.env.PORT || 3001;
 
 // Connect to DB
 connectDB();
-
-app.use(cors());
+let cor_object={
+  origin:'http://localhost:5001',
+  methods:'GET,POST,PATCH,DELETE',
+  Credential:true
+}
+app.use(cors(cor_object));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend')));
 
