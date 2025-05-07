@@ -8,18 +8,26 @@ nlp = spacy.load("en_core_web_sm")
 
 from collections import Counter
 
+
 def summarize_meeting_text(text):
     doc = nlp(text)
 
     # Extract noun chunks for frequency-based keyword scoring
-    keywords = [chunk.text.lower() for chunk in doc.noun_chunks if 1 < len(chunk.text.split()) < 5]
+    keywords = [
+        chunk.text.lower()
+        for chunk in doc.noun_chunks
+        if 1 < len(chunk.text.split()) < 5
+    ]
     keyword_freq = Counter(keywords)
 
     # Score sentences
     sentence_scores = []
     for sent in doc.sents:
-        score = sum(keyword_freq.get(word.text.lower(), 0) for word in sent 
-                    if not word.is_stop and not word.is_punct)
+        score = sum(
+            keyword_freq.get(word.text.lower(), 0)
+            for word in sent
+            if not word.is_stop and not word.is_punct
+        )
         sentence_scores.append((sent.text.strip(), score))
 
     # Sort and select top sentences
@@ -39,6 +47,7 @@ def summarize_meeting_text(text):
 def summarize():
     data = request.get_data(as_text=True)
     import json
+
     try:
         data = json.loads(data)
     except Exception:
@@ -52,6 +61,7 @@ def summarize():
 
 if __name__ == "__main__":
     import sys
+
     port = 5001
     if len(sys.argv) > 1:
         try:
